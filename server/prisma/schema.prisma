@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MatterType {
+  ARBITRATION
+  MEDIATION
+  CONCILIATION
+  OTHER
+}
+
+enum OnboardingMode {
+  COMMENCEMENT
+  ONGOING
+}
+
+enum MatterStatus {
+  ACTIVE
+  ON_HOLD
+  CLOSED
+  ARCHIVED
+}
+
+enum EventStatus {
+  COMPLETED
+  PENDING
+  NOT_APPLICABLE
+  NOT_RECORDED
+}
+
+enum EventType {
+  INVOCATION
+  APPOINTMENT
+  PLEADING
+  CLAIM
+  DEFENCE
+  COUNTERCLAIM
+  REJOINDER
+  DOCUMENT_ADMISSION_DENIAL
+  INTERIM_APPLICATION
+  INTERIM_ORDER
+  EVIDENCE
+  AFFIDAVIT
+  EXAMINATION_IN_CHIEF
+  CROSS_EXAMINATION
+  RE_EXAMINATION
+  HEARING
+  MINUTES
+  ORDER
+  PROCEDURAL_DIRECTION
+  FINAL_ARGUMENTS
+  AWARD
+  OTHER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  matters     Matter[]
+  auditEvents AuditEvent[]
+}
+
+model Matter {
+  id               String             @id @default(cuid())
+  matterCode       String             @unique
+  title            String
+  matterType       MatterType         @default(ARBITRATION)
+  onboardingMode   OnboardingMode
+  status           MatterStatus       @default(ACTIVE)
+  appointmentDate  DateTime?
+  registrationDate DateTime           @default(now())
+  currentStage     String
+  institution      String?
+  referenceNumber  String?
+  seat             String?
+  description      String?
+  createdById      String
+  createdBy        User               @relation(fields: [createdById], references: [id])
+  events           ProceduralEvent[]
+  directions       PendingDirection[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([createdById])
+}
+
+model ProceduralEvent {
+  id          String      @id @default(cuid())
+  matterId    String
+  matter      Matter      @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  eventType   EventType   @default(OTHER)
+  title       String
+  eventDate   DateTime
+  description String?
+  status      EventStatus @default(COMPLETED)
+  source      String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([matterId, eventDate])
+}
+
+model PendingDirection {
+  id          String    @id @default(cuid())
+  matterId    String
+  matter      Matter    @relation(fields: [matterId], references: [id], onDelete: Cascade)
+  description String
+  dueDate     DateTime?
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  matterId  String?
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([matterId, createdAt])
+}
